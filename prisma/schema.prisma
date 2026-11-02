@@ -1,0 +1,265 @@
+// PaddyTrace Prisma Schema
+// Strict decimal weights (Decimal 10,2) and integer paise (Int / BigInt)
+// Append-only transactions, per-centre hash chain
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OFFICER
+  RSK_STAFF
+  ADMIN
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  ESCALATED
+  DISPUTED
+}
+
+enum EscalationStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum DisputeCategory {
+  WEIGHT_MISMATCH
+  MOISTURE_DEDUCTION
+  QUALITY_DISAGREEMENT
+  MSP_PRICE_DISAGREEMENT
+  PAYMENT_NOT_RECEIVED
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+model Centre {
+  id           String        @id @default(uuid())
+  code         String        @unique
+  nameEn       String
+  nameKn       String
+  district     String
+  taluk        String
+  address      String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  users        User[]
+  transactions Transaction[]
+
+  @@index([district, taluk])
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  name         String
+  passwordHash String
+  role         Role          @default(OFFICER)
+  centreId     String?
+  centre       Centre?       @relation(fields: [centreId], references: [id])
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  disputeComments DisputeComment[]
+  auditLogs       AuditLog[]
+
+  @@index([role, centreId])
+}
+
+model Farmer {
+  id                String        @id @default(uuid())
+  fruitsId          String        @unique // 10-digit Karnataka FRUITS ID
+  nameEn            String
+  nameKn            String
+  phone             String
+  village           String
+  taluk             String
+  district          String
+  bankAccountMasked String
+  ifsc              String
+  landAreaAcres     Decimal?      @db.Decimal(5, 2)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  transactions      Transaction[]
+  disputes          Dispute[]
+
+  @@index([fruitsId])
+  @@index([phone])
+}
+
+model MspRate {
+  id                   String   @id @default(uuid())
+  variety              String   // e.g., "PADDY_COMMON", "PADDY_GRADE_A"
+  nameEn               String
+  nameKn               String
+  ratePerQuintalPaise  Int      // e.g. 230000 paise = 2,300 INR per quintal (100 kg)
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  @@index([variety, isActive])
+}
+
+model DeductionRule {
+  id                   String   @id @default(uuid())
+  name                 String
+  minMoisture          Decimal  @db.Decimal(5, 2) // e.g. 17.01
+  maxMoisture          Decimal  @db.Decimal(5, 2) // e.g. 20.00
+  deductionPercent     Decimal  @db.Decimal(5, 2) // e.g. 1.00% deduction per % or flat
+  description          String?
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  @@index([isActive])
+}
+
+model Transaction {
+  id                   String        @id @default(uuid())
+  clientLocalId        String?       @unique // Idempotency key from offline drafts (PT-LOCAL-XXXX)
+  centreId             String
+  centre               Centre        @relation(fields: [centreId], references: [id])
+  sequenceNumber       Int           // Monotonically increasing per centre (1, 2, 3...)
+  farmerId             String
+  farmer               Farmer        @relation(fields: [farmerId], references: [id])
+  paddyVariety         String        // e.g., "PADDY_COMMON"
+  
+  // Weights (kg)
+  grossWeight          Decimal       @db.Decimal(10, 2)
+  tareWeight           Decimal       @db.Decimal(10, 2)
+  netWeight            Decimal       @db.Decimal(10, 2)
+  moisturePercent      Decimal       @db.Decimal(5, 2)
+  deductionKg          Decimal       @db.Decimal(10, 2)
+  payableWeight        Decimal       @db.Decimal(10, 2)
+
+  // Financials (all in integer paise)
+  mspRatePaise         Int           // Rate per quintal in paise
+  grossPayablePaise    BigInt
+  deductionAmountPaise BigInt
+  finalPayablePaise    BigInt
+
+  // Evidence & Sensor Data
+  scalePhotoUrl        String?
+  scalePhotoSha256     String
+  gpsLat               Decimal?      @db.Decimal(10, 6)
+  gpsLng               Decimal?      @db.Decimal(10, 6)
+  deviceTimestamp      DateTime
+
+  // Cryptographic Chain
+  previousHash         String        // 64-char hex (genesis is 64 zeros)
+  hash                 String        // 64-char hex SHA-256 of canonical payload
+  
+  createdAt            DateTime      @default(now())
+
+  payment              Payment?
+  disputes             Dispute[]
+
+  @@unique([centreId, sequenceNumber])
+  @@index([centreId])
+  @@index([farmerId])
+  @@index([hash])
+  @@index([createdAt])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  transactionId   String        @unique
+  transaction     Transaction   @relation(fields: [transactionId], references: [id])
+  amountPaise     BigInt
+  dueDate         DateTime      // Transaction created + 15 days statutory SLA
+  paidDate        DateTime?
+  status          PaymentStatus @default(PENDING)
+  paymentMode     String?       // DBT / NEFT / RTGS
+  reference       String?       // Bank transaction reference / UTR
+  failureReason   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  escalations     Escalation[]
+
+  @@index([status, dueDate])
+}
+
+model Escalation {
+  id              String           @id @default(uuid())
+  paymentId       String
+  payment         Payment          @relation(fields: [paymentId], references: [id])
+  escalatedAt     DateTime         @default(now())
+  status          EscalationStatus @default(OPEN)
+  assignedToRsk   String?          // RSK Centre code or name
+  notes           String?
+  resolvedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([status, escalatedAt])
+}
+
+model Dispute {
+  id               String          @id @default(uuid())
+  disputeRef       String          @unique // e.g., DSP-2026-0001
+  transactionId    String
+  transaction      Transaction     @relation(fields: [transactionId], references: [id])
+  farmerFruitsId   String
+  farmer           Farmer          @relation(fields: [farmerFruitsId], references: [fruitsId])
+  category         DisputeCategory
+  description      String
+  evidencePhotoUrl String?
+  status           DisputeStatus   @default(OPEN)
+  resolutionNotes  String?
+  resolvedAt       DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  comments         DisputeComment[]
+
+  @@index([transactionId])
+  @@index([farmerFruitsId])
+  @@index([status])
+}
+
+model DisputeComment {
+  id         String   @id @default(uuid())
+  disputeId  String
+  dispute    Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  comment    String
+  createdAt  DateTime @default(now())
+
+  @@index([disputeId])
+}
+
+model AuditLog {
+  id                String   @id @default(uuid())
+  action            String   // e.g. "CREATE_TRANSACTION", "ESCALATE_PAYMENT", "RESOLVE_DISPUTE"
+  entityType        String   // "Transaction", "Payment", "Dispute"
+  entityId          String
+  performedByUserId String?
+  performedBy       User?    @relation(fields: [performedByUserId], references: [id])
+  metadataJson      String?  // JSON stringified payload
+  ipAddress         String?
+  createdAt         DateTime @default(now())
+
+  @@index([action, entityType])
+  @@index([createdAt])
+}
+
