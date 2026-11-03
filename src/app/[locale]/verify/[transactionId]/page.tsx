@@ -201,6 +201,44 @@ export default async function VerifyTransactionPage({
         </div>
       )}
 
+      {/* Quick Jump & Direct Grievance Access Banner */}
+      <div className="bg-gradient-to-r from-amber-50 to-emerald-50 border-2 border-amber-300/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-sm flex-shrink-0">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="bg-amber-200 text-amber-950 font-black text-[10px] px-2 py-0.5 rounded uppercase tracking-wider">
+                {locale === "kn" ? "ರೈತರ ಸಹಾಯವಾಣಿ / ದೂರು ವೇದಿಕೆ" : "Farmer Grievance Support"}
+              </span>
+              <span className="text-[11px] text-amber-800 font-bold">
+                15-Day SLA
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 mt-1 font-medium">
+              {locale === "kn"
+                ? "ತೂಕ, ತೇವಾಂಶ ಕಡಿತ ಅಥವಾ ಡಿಬಿಟಿ ಹಣ ಪಾವತಿಯಲ್ಲಿ ವ್ಯತ್ಯಾಸವಿದೆಯೇ? ಅಧಿಕೃತ ದೂರು ಸಲ್ಲಿಸಿ."
+                : "Notice a weight, moisture deduction, or payment delay? File an official grievance."}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
+          <a
+            href="#grievance"
+            className="flex-1 sm:flex-none text-center bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition"
+          >
+            {locale === "kn" ? "ದೂರು ಸಲ್ಲಿಸಿ (File Grievance) ↓" : "File Grievance Below ↓"}
+          </a>
+          <Link
+            href={`/dispute/${transaction.id}`}
+            className="flex-1 sm:flex-none text-center bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-300 shadow-xs transition"
+          >
+            {locale === "kn" ? "ದೂರು ಪೋರ್ಟಲ್ →" : "Direct Dispute Page →"}
+          </Link>
+        </div>
+      </div>
+
       {/* Primary Value Summary Card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-6 gap-4">

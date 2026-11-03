@@ -33,14 +33,22 @@ export default async function DisputePage({
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-4">
-      {/* Back to verification link */}
-      <Link
-        href={`/verify/${transaction.id}`}
-        className="inline-flex items-center space-x-1.5 text-xs font-semibold text-[#1b4332] hover:underline"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>{locale === "kn" ? "ಪರಿಶೀಲನೆ ಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ" : "Back to Verification"}</span>
-      </Link>
+      {/* Top Navigation Links */}
+      <div className="flex items-center justify-between text-xs">
+        <Link
+          href={`/verify/${transaction.id}`}
+          className="inline-flex items-center space-x-1.5 font-semibold text-[#1b4332] hover:underline"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>{locale === "kn" ? "ವಹಿವಾಟು ಪರಿಶೀಲನೆಗೆ ಹಿಂತಿರುಗಿ" : "Back to Verification"}</span>
+        </Link>
+        <Link
+          href="/grievances"
+          className="text-slate-600 hover:text-slate-900 font-semibold hover:underline"
+        >
+          {locale === "kn" ? "ಎಲ್ಲಾ ಕುಂದುಕೊರತೆಗಳ ವೇದಿಕೆ →" : "Official Grievance Desk →"}
+        </Link>
+      </div>
 
       {/* Header */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">

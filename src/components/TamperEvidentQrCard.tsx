@@ -129,9 +129,7 @@ export function TamperEvidentQrCard({
       ? "https"
       : "http";
   const baseUrl = `${protocol}://${selectedHost}`;
-  const verificationUrl = `${baseUrl}/${locale}/verify/${transactionId}${
-    verificationToken ? `?t=${verificationToken}` : ""
-  }`;
+  const verificationUrl = `${baseUrl}/${locale}/verify/${transactionId}`;
 
   // Self-contained compact offline passport text readable by barcode scanners without internet
   const offlinePassportText = generateOfflinePassportText({
@@ -159,8 +157,8 @@ export function TamperEvidentQrCard({
   // Generate QR code data URL whenever payload changes
   useEffect(() => {
     QRCode.toDataURL(activeQrPayload, {
-      width: 320,
-      margin: 2,
+      width: 360,
+      margin: 4,
       color: {
         dark: isTampered ? "#991b1b" : "#000000",
         light: "#ffffff",

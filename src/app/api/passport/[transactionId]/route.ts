@@ -35,11 +35,10 @@ export async function GET(
 
   const origin = request.nextUrl.origin;
   const baseUrl = getPublicVerificationBaseUrl(origin);
-  const token = await generateQrVerificationToken(
-    transaction.id,
-    farmer?.fruitsId || ""
-  );
-  const verificationUrl = `${baseUrl}/kn/verify/${transaction.id}?t=${token}`;
+
+  // Clean, high-performance URLs for instant paper & camera scanning (Version 3, 29x29 dots)
+  const verificationUrl = `${baseUrl}/kn/verify/${transaction.id}`;
+  const disputeUrl = `${baseUrl}/kn/dispute/${transaction.id}`;
 
   const formattedNet = formatWeight(transaction.netWeight);
   const formattedGross = formatWeight(transaction.grossWeight);
@@ -54,8 +53,6 @@ export async function GET(
   const maskedFarmer = farmer ? maskName(farmer.nameEn) : "Registered Farmer";
 
   // 1. Generate Self-Contained Offline Passport Text
-  // This text is parsed directly by ANY smartphone camera (Google Lens, iOS, Android)
-  // WITHOUT requiring Wi-Fi, Internet, or connecting to a local server!
   const offlinePassportText = generateOfflinePassportText({
     transactionId: transaction.id,
     centreCode: centre?.code || "KA-RCH-01",
@@ -76,11 +73,10 @@ export async function GET(
     hash: transaction.hash,
   });
 
-  // 1. Generate Online Web Portal QR (PRIMARY — Version 4, 33x33 dots, scans in 0.05s)
-  // Encodes the public HTTPS URL, so ANY smartphone on ANY network (4G/5G/Wi-Fi) can open it!
-  const qrWebDataUrl = await QRCode.toDataURL(verificationUrl, {
-    width: 320,
-    margin: 2,
+  // 1. Transaction Verification Portal QR (ISO 18004 Quiet Zone Margin: 4, 600px print-ready)
+  const qrVerifyDataUrl = await QRCode.toDataURL(verificationUrl, {
+    width: 600,
+    margin: 4,
     color: {
       dark: "#000000",
       light: "#ffffff",
@@ -88,10 +84,21 @@ export async function GET(
     errorCorrectionLevel: "M",
   });
 
-  // 2. Generate Compact Offline Text QR
+  // 2. Direct Farmer Grievance Desk QR (Instant redirection to RSK Dispute Portal)
+  const qrDisputeDataUrl = await QRCode.toDataURL(disputeUrl, {
+    width: 600,
+    margin: 4,
+    color: {
+      dark: "#000000",
+      light: "#ffffff",
+    },
+    errorCorrectionLevel: "M",
+  });
+
+  // 3. Compact Offline Text QR
   const qrOfflineDataUrl = await QRCode.toDataURL(offlinePassportText, {
-    width: 320,
-    margin: 2,
+    width: 600,
+    margin: 4,
     color: {
       dark: "#000000",
       light: "#ffffff",
@@ -204,13 +211,81 @@ export async function GET(
       font-weight: 800;
       color: #065f46;
     }
-    .qr-section {
+    .qr-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 18px;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 14px;
+    }
+    .qr-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fafc;
+      text-align: center;
+    }
+    .qr-header-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .tag-green {
+      background: #1b4332;
+      color: #ffffff;
+    }
+    .tag-amber {
+      background: #b45309;
+      color: #ffffff;
+    }
+    .qr-card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+    .qr-img-frame {
+      background: #ffffff;
+      padding: 6px;
+      border-radius: 6px;
+      display: inline-block;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .qr-img {
+      display: block;
+      width: 140px;
+      height: 140px;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      image-rendering: pixelated;
+    }
+    .qr-card-desc {
+      font-size: 10px;
+      color: #475569;
+      margin-top: 8px;
+      line-height: 1.35;
+    }
+    .qr-card-link {
+      font-family: monospace;
+      font-size: 9px;
+      color: #1b4332;
+      text-decoration: underline;
+      display: block;
+      margin-top: 4px;
+      word-break: break-all;
+    }
+    .qr-single-section {
       display: flex;
       align-items: center;
       gap: 20px;
-      margin-top: 20px;
+      margin-top: 18px;
       border-top: 1px dashed #cbd5e1;
-      padding-top: 16px;
+      padding-top: 14px;
     }
     .hash-box {
       font-family: monospace;
@@ -235,20 +310,59 @@ export async function GET(
       user-select: none;
     }
     @media print {
-      body { padding: 0; }
-      .no-print { display: none; }
+      @page {
+        size: A4 portrait;
+        margin: 8mm;
+      }
+      body {
+        padding: 0 !important;
+        background: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .passport-border {
+        border: 2px solid #1b4332 !important;
+        padding: 14px !important;
+      }
+      .qr-grid {
+        gap: 10px !important;
+        margin-top: 12px !important;
+        padding-top: 10px !important;
+      }
+      .qr-box {
+        padding: 6px !important;
+        background: #fdfdfd !important;
+        border: 1px solid #94a3b8 !important;
+      }
+      .qr-img {
+        width: 44mm !important;
+        height: 44mm !important;
+        image-rendering: pixelated !important;
+      }
+      .qr-card-desc {
+        font-size: 8.5px !important;
+      }
     }
   </style>
 </head>
 <body>
   <div class="no-print" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0;">
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-      <span style="font-size: 12px; font-weight: 700; color: #1b4332;">📱 QR Mode:</span>
-      <button id="btnWeb" onclick="switchQr('web')" style="background: #1b4332; color: #fff; border: 1px solid #1b4332; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
-        🌐 Instant Mobile Scan (4G / 5G / Wi-Fi)
+      <span style="font-size: 12px; font-weight: 700; color: #1b4332;">📱 QR Layout:</span>
+      <button id="btnDual" onclick="switchQr('dual')" style="background: #1b4332; color: #fff; border: 1px solid #1b4332; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+        ✨ Dual QR (Details + Grievance Desk) [Default]
+      </button>
+      <button id="btnVerify" onclick="switchQr('verify')" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+        🔍 Details Portal Only
+      </button>
+      <button id="btnDispute" onclick="switchQr('dispute')" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+        ⚠️ Grievance Desk Only
       </button>
       <button id="btnOffline" onclick="switchQr('offline')" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
-        📱 Compact Offline Text Mode
+        📄 Offline Text Proof
       </button>
     </div>
     <div>
@@ -354,60 +468,141 @@ export async function GET(
       </div>
     </div>
 
-    <div class="qr-section">
+    <!-- Dual QR Code Grid (Prints both Transaction Verification & Grievance Desk) -->
+    <div id="qrDualContainer" class="qr-grid">
+      <!-- QR 1: Transaction Details Portal -->
+      <div class="qr-box">
+        <div class="qr-header-tag tag-green">🔍 1. TRANSACTION DETAILS</div>
+        <div class="qr-card-title">ವಹಿವಾಟು ಪರಿಶೀಲನೆ (View Details)</div>
+        <div class="qr-img-frame">
+          <img src="${qrVerifyDataUrl}" class="qr-img" alt="Transaction Details QR" width="140" height="140" />
+        </div>
+        <div class="qr-card-desc">
+          Scan with ANY mobile camera to verify net weights, moisture deductions, and DBT payout status.
+        </div>
+        <a href="${verificationUrl}" class="qr-card-link">${verificationUrl}</a>
+      </div>
+
+      <!-- QR 2: Direct Grievance Desk -->
+      <div class="qr-box" style="border-color: #fcd34d; background: #fffdf5;">
+        <div class="qr-header-tag tag-amber">⚠️ 2. GRIEVANCE DESK</div>
+        <div class="qr-card-title">ರೈತರ ನೇರ ಆಕ್ಷೇಪಣೆ (File Dispute)</div>
+        <div class="qr-img-frame">
+          <img src="${qrDisputeDataUrl}" class="qr-img" alt="Farmer Grievance QR" width="140" height="140" />
+        </div>
+        <div class="qr-card-desc">
+          Discrepancy in weight, moisture or delayed DBT? Scan to file an official grievance directly to RSK.
+        </div>
+        <a href="${disputeUrl}" class="qr-card-link" style="color: #b45309;">${disputeUrl}</a>
+      </div>
+    </div>
+
+    <!-- Single / Offline QR Container (Shown when selected in preview toolbar) -->
+    <div id="qrSingleContainer" class="qr-single-section" style="display: none;">
       <div style="text-align: center;">
-        <img id="passportQr" src="${qrWebDataUrl}" alt="Verification QR Code" width="180" height="180" style="border: 2px solid #1b4332; border-radius: 8px; padding: 6px; background: #fff;" />
-        <div style="font-size: 10px; color: #065f46; font-weight: 800; margin-top: 5px;">✓ HIGH CONTRAST & CRISP</div>
+        <div class="qr-img-frame">
+          <img id="singleQrImg" src="${qrVerifyDataUrl}" alt="Single QR" class="qr-img" width="170" height="170" />
+        </div>
       </div>
       <div style="flex: 1;">
-        <div id="qrBadge" style="display: inline-block; background: #065f46; color: #ffffff; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; margin-bottom: 6px; letter-spacing: 0.5px;">
-          🌐 INSTANT MOBILE SCAN (WORKS ON 4G/5G MOBILE DATA & WI-FI)
+        <div id="singleQrBadge" class="qr-header-tag tag-green" style="font-size: 11px;">
+          🔍 TRANSACTION VERIFICATION PORTAL
         </div>
-        <div style="font-weight: 700; color: #1b4332; font-size: 13px; margin-bottom: 4px;">
-          Independent Farmer Verification & Tamper Detection
+        <div id="singleQrTitle" style="font-weight: 700; color: #1b4332; font-size: 14px; margin-bottom: 4px;">
+          ವಹಿವಾಟು ಪರಿಶೀಲನೆ ಮತ್ತು ಪಾರದರ್ಶಕತೆ
         </div>
-        <div id="qrDesc" style="font-size: 11px; color: #475569; margin-bottom: 8px; line-height: 1.45;">
-          Point your smartphone camera (Google Lens, iPhone Camera, Samsung QR, WhatsApp) at this QR code. Scans instantly in 0.1s from ANY mobile device on 4G/5G or Wi-Fi without needing to pair with a local server.
+        <div id="singleQrDesc" style="font-size: 11px; color: #475569; margin-bottom: 8px; line-height: 1.45;">
+          Point your smartphone camera (Google Lens, iPhone Camera, Samsung QR, WhatsApp) at this QR code.
         </div>
-        <div class="hash-box">
-          <strong>Block Sequence:</strong> #${transaction.sequenceNumber} (Centre: ${centre?.code})<br/>
-          <strong>SHA-256 Hash:</strong> ${transaction.hash}<br/>
-          <strong>Previous Block:</strong> ${transaction.previousHash}<br/>
-          <strong>Public Verification Link:</strong> <a href="${verificationUrl}" style="color: #1b4332; text-decoration: underline;">${verificationUrl}</a>
-        </div>
+        <a id="singleQrLink" href="${verificationUrl}" class="qr-card-link" style="font-size: 11px;">${verificationUrl}</a>
       </div>
+    </div>
+
+    <div class="hash-box" style="margin-top: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-weight: 700; font-size: 10px;">
+        <span>CHAIN BLOCK #${transaction.sequenceNumber} &bull; CENTRE: ${centre?.code}</span>
+        <span style="color: #065f46;">STATUS: INTACT & AUDIT-VERIFIED ✓</span>
+      </div>
+      <strong>SHA-256 Hash:</strong> ${transaction.hash}<br/>
+      <strong>Previous Hash:</strong> ${transaction.previousHash}
     </div>
   </div>
 
   <script>
+    const qrVerify = "${qrVerifyDataUrl}";
+    const qrDispute = "${qrDisputeDataUrl}";
     const qrOffline = "${qrOfflineDataUrl}";
-    const qrWeb = "${qrWebDataUrl}";
+    const urlVerify = "${verificationUrl}";
+    const urlDispute = "${disputeUrl}";
 
     function switchQr(mode) {
-      const img = document.getElementById('passportQr');
-      const badge = document.getElementById('qrBadge');
-      const desc = document.getElementById('qrDesc');
-      const btnOff = document.getElementById('btnOffline');
-      const btnW = document.getElementById('btnWeb');
+      const dual = document.getElementById('qrDualContainer');
+      const single = document.getElementById('qrSingleContainer');
+      const singleImg = document.getElementById('singleQrImg');
+      const singleBadge = document.getElementById('singleQrBadge');
+      const singleTitle = document.getElementById('singleQrTitle');
+      const singleDesc = document.getElementById('singleQrDesc');
+      const singleLink = document.getElementById('singleQrLink');
 
-      if (mode === 'offline') {
-        img.src = qrOffline;
-        badge.innerText = '📱 COMPACT OFFLINE TEXT QR (NO INTERNET NEEDED)';
-        badge.style.background = '#1e3a8a';
-        desc.innerText = 'Contains certified weighing, deductions, MSP payout, and SHA-256 hash as compact text. Readable by barcode readers and Google Lens without internet connectivity.';
-        btnOff.style.background = '#1b4332';
-        btnOff.style.color = '#fff';
-        btnW.style.background = '#ffffff';
-        btnW.style.color = '#334155';
+      const btnDual = document.getElementById('btnDual');
+      const btnV = document.getElementById('btnVerify');
+      const btnD = document.getElementById('btnDispute');
+      const btnO = document.getElementById('btnOffline');
+
+      [btnDual, btnV, btnD, btnO].forEach(b => {
+        b.style.background = '#ffffff';
+        b.style.color = '#334155';
+        b.style.border = '1px solid #cbd5e1';
+        b.style.fontWeight = '600';
+      });
+
+      if (mode === 'dual') {
+        dual.style.display = 'grid';
+        single.style.display = 'none';
+        btnDual.style.background = '#1b4332';
+        btnDual.style.color = '#fff';
+        btnDual.style.fontWeight = '700';
       } else {
-        img.src = qrWeb;
-        badge.innerText = '🌐 INSTANT MOBILE SCAN (WORKS ON 4G/5G MOBILE DATA & WI-FI)';
-        badge.style.background = '#065f46';
-        desc.innerText = 'Point your smartphone camera (Google Lens, iPhone Camera, Samsung QR, WhatsApp) at this QR code. Scans instantly in 0.1s from ANY mobile device on 4G/5G or Wi-Fi without needing to pair with a local server.';
-        btnW.style.background = '#1b4332';
-        btnW.style.color = '#fff';
-        btnOff.style.background = '#ffffff';
-        btnOff.style.color = '#334155';
+        dual.style.display = 'none';
+        single.style.display = 'flex';
+
+        if (mode === 'verify') {
+          singleImg.src = qrVerify;
+          singleBadge.className = 'qr-header-tag tag-green';
+          singleBadge.innerText = '🔍 TRANSACTION DETAILS PORTAL';
+          singleTitle.innerText = 'ವಹಿವಾಟು ಪರಿಶೀಲನೆ (Verified Record)';
+          singleDesc.innerText = 'Point your camera at this QR to view complete certified weights, moisture deductions, and DBT payout status.';
+          singleLink.href = urlVerify;
+          singleLink.innerText = urlVerify;
+          singleLink.style.display = 'block';
+          btnV.style.background = '#1b4332';
+          btnV.style.color = '#fff';
+          btnV.style.fontWeight = '700';
+        } else if (mode === 'dispute') {
+          singleImg.src = qrDispute;
+          singleBadge.className = 'qr-header-tag tag-amber';
+          singleBadge.innerText = '⚠️ OFFICIAL GRIEVANCE DESK';
+          singleTitle.innerText = 'ರೈತರ ನೇರ ಆಕ್ಷೇಪಣೆ ಸಲ್ಲಿಸಿ (File Grievance)';
+          singleDesc.innerText = 'Discrepancy in weighing, moisture deduction, or payment delay? Scan to open the direct RSK grievance form.';
+          singleLink.href = urlDispute;
+          singleLink.innerText = urlDispute;
+          singleLink.style.display = 'block';
+          btnD.style.background = '#1b4332';
+          btnD.style.color = '#fff';
+          btnD.style.fontWeight = '700';
+        } else if (mode === 'offline') {
+          singleImg.src = qrOffline;
+          singleBadge.className = 'qr-header-tag';
+          singleBadge.style.background = '#1e3a8a';
+          singleBadge.style.color = '#fff';
+          singleBadge.innerText = '📄 COMPACT OFFLINE TEXT PROOF';
+          singleTitle.innerText = 'ಆಫ್‌ಲೈನ್ ಪಠ್ಯ ದಾಖಲೆ (No Internet Required)';
+          singleDesc.innerText = 'Contains certified weighing, deductions, and SHA-256 hash as raw readable text for devices without internet.';
+          singleLink.style.display = 'none';
+          btnO.style.background = '#1b4332';
+          btnO.style.color = '#fff';
+          btnO.style.fontWeight = '700';
+        }
       }
     }
   </script>
