@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { TamperEvidentQrCard } from "@/components/TamperEvidentQrCard";
+import { DisputeForm } from "@/components/DisputeForm";
 import {
   formatPaiseToInr,
   formatWeight,
@@ -411,7 +412,40 @@ export default async function VerifyTransactionPage({
           </div>
         </div>
 
-        {/* Action Buttons: Download PDF Passport & Raise Dispute */}
+        {/* Farmer Grievance & Dispute Redressal Desk */}
+        <div id="grievance" className="mt-8 p-6 bg-amber-50/70 rounded-2xl border-2 border-amber-300 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-3">
+            <div>
+              <span className="bg-amber-200 text-amber-950 font-black text-[11px] px-2.5 py-1 rounded-md uppercase tracking-wider">
+                {locale === "kn" ? "ರೈತರ ಕುಂದುಕೊರತೆ ನಿವಾರಣಾ ವೇದಿಕೆ" : "Official Farmer Grievance Desk"}
+              </span>
+              <h3 className="text-lg font-black text-slate-900 mt-1.5">
+                {locale === "kn"
+                  ? "ತೂಕ ಅಥವಾ ಪಾವತಿಯಲ್ಲಿ ವ್ಯತ್ಯಾಸವಿದೆಯೇ? ಅಧಿಕೃತ ದೂರು ದಾಖಲಿಸಿ"
+                  : "Notice a Discrepancy? File a Grievance Instantly"}
+              </h3>
+            </div>
+            <span className="text-xs font-bold text-amber-900 bg-white/80 px-2.5 py-1 rounded-lg border border-amber-200">
+              {locale === "kn" ? "15 ದಿನಗಳ ಶಾಸನಬದ್ಧ ಗಡುವಿನೊಳಗೆ ಪರಿಹಾರ" : "15-Day Statutory SLA Resolution"}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {locale === "kn"
+              ? "ಭತ್ತದ ತೂಕ, ತೇವಾಂಶ ಕಡಿತ, ಕನಿಷ್ಠ ಬೆಂಬಲ ಬೆಲೆ (MSP) ಅಥವಾ ಡಿಬಿಟಿ ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ ಜಮೆಯಾಗುವಲ್ಲಿ ಯಾವುದೇ ವ್ಯತ್ಯಾಸ ಕಂಡುಬಂದರೆ, ಯಾವುದೇ ಲಾಗಿನ್ ಅಗತ್ಯವಿಲ್ಲದೆ ನೇರವಾಗಿ ಇಲ್ಲಿ ದೂರು ಸಲ್ಲಿಸಬಹುದು."
+              : "If there is any discrepancy in net weighing, moisture deductions, statutory MSP payout, or delayed DBT bank transfer, file an official grievance below. No login or password required."}
+          </p>
+
+          <div className="bg-white p-5 rounded-xl border border-amber-200/80 shadow-xs">
+            <DisputeForm
+              transactionId={transaction.id}
+              farmerFruitsId={farmer?.fruitsId || "1002345678"}
+              locale={locale}
+            />
+          </div>
+        </div>
+
+        {/* Action Buttons: Download PDF Passport & Direct Support */}
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-100">
           <a
             href={`/api/passport/${transaction.id}`}
@@ -423,13 +457,13 @@ export default async function VerifyTransactionPage({
             <span>{tCommon("downloadPassport")}</span>
           </a>
 
-          <Link
-            href={`/dispute/${transaction.id}`}
-            className="w-full sm:w-auto bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold px-6 py-3 rounded-xl transition flex items-center justify-center space-x-2 text-sm"
+          <a
+            href="#grievance"
+            className="w-full sm:w-auto bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 font-bold px-6 py-3 rounded-xl transition flex items-center justify-center space-x-2 text-sm"
           >
-            <AlertCircle className="w-4 h-4 text-amber-700" />
-            <span>{tCommon("raiseDispute")}</span>
-          </Link>
+            <AlertCircle className="w-4 h-4 text-amber-800" />
+            <span>{locale === "kn" ? "ದೂರು ವಿಭಾಗಕ್ಕೆ ಹೋಗಿ" : "Jump to Grievance Desk"}</span>
+          </a>
         </div>
       </div>
     </div>
