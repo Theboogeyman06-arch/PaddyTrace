@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { db } from "@/lib/db";
 import { formatPaiseToInr, formatWeight, maskName } from "@/lib/math/procurement";
 import { generateQrVerificationToken } from "@/lib/crypto/hash-chain";
+import { getPublicVerificationBaseUrl } from "@/lib/network";
 
 export async function GET(
   request: NextRequest,
@@ -28,11 +29,12 @@ export async function GET(
   const payment = transaction.payment;
 
   const origin = request.nextUrl.origin;
+  const baseUrl = getPublicVerificationBaseUrl(origin);
   const token = await generateQrVerificationToken(
     transaction.id,
     farmer?.fruitsId || ""
   );
-  const verificationUrl = `${origin}/kn/verify/${transaction.id}?t=${token}`;
+  const verificationUrl = `${baseUrl}/kn/verify/${transaction.id}?t=${token}`;
 
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
     width: 200,
@@ -313,7 +315,8 @@ export async function GET(
         <div class="hash-box">
           <strong>Block Sequence:</strong> #${transaction.sequenceNumber} (Centre: ${centre?.code})<br/>
           <strong>SHA-256 Hash:</strong> ${transaction.hash}<br/>
-          <strong>Previous Block:</strong> ${transaction.previousHash}
+          <strong>Previous Block:</strong> ${transaction.previousHash}<br/>
+          <strong>Verification URL:</strong> <a href="${verificationUrl}" style="color: #1b4332; text-decoration: underline;">${verificationUrl}</a>
         </div>
       </div>
     </div>

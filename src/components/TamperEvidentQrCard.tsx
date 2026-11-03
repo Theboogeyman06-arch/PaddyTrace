@@ -50,8 +50,32 @@ export function TamperEvidentQrCard({
   const [copied, setCopied] = useState(false);
   const [isTampered, setIsTampered] = useState(false);
   const [tamperedWeight, setTamperedWeight] = useState(netWeightKg);
+  // Default to LAN IP for smartphone scanning when running locally
+  const [networkHost, setNetworkHost] = useState("10.82.179.100:3000");
+  const [scanMode, setScanMode] = useState<"mobile" | "local" | "custom">("mobile");
+  const [customHost, setCustomHost] = useState("");
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const host = window.location.host;
+      // If deployed on Vercel or accessed via public domain / LAN IP, use that host automatically
+      if (!host.includes("localhost") && !host.includes("127.0.0.1")) {
+        setNetworkHost(host);
+      }
+    }
+  }, []);
+
+  const selectedHost =
+    scanMode === "mobile"
+      ? networkHost
+      : scanMode === "custom" && customHost
+      ? customHost.replace(/^https?:\/\//, "")
+      : typeof window !== "undefined"
+      ? window.location.host
+      : "localhost:3000";
+
+  const protocol = selectedHost.includes("vercel.app") ? "https" : "http";
+  const baseUrl = `${protocol}://${selectedHost}`;
   const verificationUrl = `${baseUrl}/${locale}/verify/${transactionId}${
     verificationToken ? `?t=${verificationToken}` : ""
   }`;
@@ -158,6 +182,43 @@ export function TamperEvidentQrCard({
             {locale === "kn"
               ? "ಯಾವುದೇ ಸ್ಮಾರ್ಟ್‌ಫೋನ್ ಕ್ಯಾಮೆರಾದಿಂದ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ ತೂಕ, ತೇವಾಂಶ ಮತ್ತು ನೇರ ಪಾವತಿ ಪರಿಶೀಲಿಸಿ."
               : "Scan with any mobile camera to independently verify weights, deductions, and payment."}
+          </div>
+
+          {/* Scan Target Host Switcher for Smartphone Demo */}
+          <div className="w-full bg-slate-100 p-2 rounded-xl border border-slate-200 text-left space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 uppercase">
+              <span>{locale === "kn" ? "ಕ್ಯೂಆರ್ ಸ್ಕ್ಯಾನ್ ಮೋಡ್" : "QR Scan Target"}:</span>
+              <span className="font-mono text-emerald-800 font-semibold">{selectedHost}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1 text-[11px] font-semibold">
+              <button
+                type="button"
+                onClick={() => setScanMode("mobile")}
+                className={`px-2 py-1 rounded text-center transition ${
+                  scanMode === "mobile"
+                    ? "bg-[#1b4332] text-white shadow-xs font-bold"
+                    : "bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                📱 Mobile Wi-Fi
+              </button>
+              <button
+                type="button"
+                onClick={() => setScanMode("local")}
+                className={`px-2 py-1 rounded text-center transition ${
+                  scanMode === "local"
+                    ? "bg-[#1b4332] text-white shadow-xs font-bold"
+                    : "bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                💻 Laptop
+              </button>
+            </div>
+            {scanMode === "mobile" && (
+              <p className="text-[10px] text-emerald-800 leading-tight">
+                ✓ Points to LAN IP (<code>{networkHost}</code>). Smartphones on this Wi-Fi can scan & connect directly without &quot;localhost refused to connect&quot;!
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 pt-1 w-full">
