@@ -174,5 +174,33 @@ describe("PaddyTrace End-to-End Procurement Lifecycle", () => {
     expect(updatedPayment.status).toBe("PAID");
     expect(updatedPayment.reference).toContain("PFMS");
   });
+
+  it("4. Verifies transactions and disputes across all 3 market yards (Sindhanur, Maddur, Bhadravati)", async () => {
+    const centres = await db.centres.findMany();
+    expect(centres.length).toBeGreaterThanOrEqual(3);
+    const centreCodes = centres.map((c) => c.code);
+    expect(centreCodes).toContain("KA-RCH-01"); // Sindhanur
+    expect(centreCodes).toContain("KA-MDY-01"); // Maddur
+    expect(centreCodes).toContain("KA-SMG-01"); // Bhadravati
+
+    // Verify Maddur transactions exist and chain is valid
+    const mdyTxs = await db.transactions.findMany({ where: { centreId: "centre-mandya-01" } });
+    expect(mdyTxs.length).toBeGreaterThanOrEqual(2);
+    const mdyAudit = verifyCentreChain(mdyTxs);
+    expect(mdyAudit.isValid).toBe(true);
+
+    // Verify Bhadravati transactions exist and chain is valid
+    const smgTxs = await db.transactions.findMany({ where: { centreId: "centre-shimoga-01" } });
+    expect(smgTxs.length).toBeGreaterThanOrEqual(2);
+    const smgAudit = verifyCentreChain(smgTxs);
+    expect(smgAudit.isValid).toBe(true);
+
+    // Verify seeded disputes exist for review by officials
+    const disputes = await db.disputes.findMany();
+    expect(disputes.length).toBeGreaterThanOrEqual(3);
+    const categories = disputes.map((d) => d.category);
+    expect(categories).toContain("MOISTURE_DEDUCTION");
+    expect(categories).toContain("PAYMENT_NOT_RECEIVED");
+  });
 });
 

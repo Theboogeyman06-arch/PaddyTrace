@@ -2,7 +2,17 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/routing";
-import { ShieldCheck, Wifi, WifiOff, Globe, UserCheck, Layers, FileText, QrCode } from "lucide-react";
+import {
+  ShieldCheck,
+  Wifi,
+  WifiOff,
+  Globe,
+  UserCheck,
+  Layers,
+  FileText,
+  QrCode,
+  AlertCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { offlineDb } from "@/lib/offline/db";
 
@@ -85,6 +95,16 @@ export function Navbar() {
             >
               <QrCode className="w-4 h-4 text-[#74c69d]" />
               <span>{locale === "kn" ? "ಕ್ಯೂಆರ್ ಲ್ಯಾಬ್" : "QR & Hash Lab"}</span>
+            </Link>
+            <Link
+              href="/grievances"
+              className="px-3 py-2 rounded-md hover:bg-[#2d6a4f] transition flex items-center space-x-1.5 bg-amber-500/15 border border-amber-400/30 text-amber-200"
+            >
+              <AlertCircle className="w-4 h-4 text-amber-400" />
+              <span>{locale === "kn" ? "ಕುಂದುಕೊರತೆಗಳು" : "Grievances"}</span>
+              <span className="bg-amber-400 text-black text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                2
+              </span>
             </Link>
             <Link
               href="/admin"

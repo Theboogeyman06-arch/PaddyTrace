@@ -151,6 +151,7 @@ export interface DisputeComment {
   disputeId: string;
   authorId: string;
   authorName?: string;
+  authorRole?: string;
   comment: string;
   createdAt: string;
 }

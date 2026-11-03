@@ -18,6 +18,67 @@ const DisputeSchema = z.object({
   evidencePhotoBase64: z.string().optional(),
 });
 
+function safeJsonResponse(data: unknown, status = 200) {
+  const json = JSON.stringify(data, (_, value) =>
+    typeof value === "bigint" ? Number(value) : value
+  );
+  return new NextResponse(json, {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function GET() {
+  try {
+    const disputes = await db.disputes.findMany();
+    return safeJsonResponse({ success: true, disputes });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return safeJsonResponse({ error: err.message || "Failed to load disputes" }, 500);
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { disputeId, status, resolutionNotes, officerComment } = body;
+
+    if (!disputeId || !status) {
+      return safeJsonResponse({ error: "disputeId and status required" }, 400);
+    }
+
+    const updated = await db.disputes.update(disputeId, {
+      status,
+      resolutionNotes: resolutionNotes || undefined,
+      resolvedAt: status === "RESOLVED" || status === "REJECTED" ? new Date().toISOString() : undefined,
+    });
+
+    if (officerComment) {
+      await db.disputeComments.create({
+        id: "comm-" + Date.now().toString(36),
+        disputeId,
+        authorId: "usr-officer",
+        authorRole: "OFFICER",
+        authorName: "Raitha Samparka Kendra Officer",
+        comment: officerComment,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    await db.auditLogs.create({
+      action: "DISPUTE_STATUS_UPDATED",
+      entityType: "Dispute",
+      entityId: disputeId,
+      metadataJson: JSON.stringify({ status, resolutionNotes }),
+    });
+
+    return safeJsonResponse({ success: true, dispute: updated });
+  } catch (error: unknown) {
+    const err = error as Error;
+    return safeJsonResponse({ error: err.message || "Failed to update dispute" }, 400);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -28,7 +89,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!tx) {
-      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
+      return safeJsonResponse({ error: "Transaction not found" }, 404);
     }
 
     const disputeRef = "DSP-" + new Date().getFullYear() + "-" + Math.floor(1000 + Math.random() * 9000);
@@ -67,10 +128,10 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    return NextResponse.json({ success: true, dispute: created });
+    return safeJsonResponse({ success: true, dispute: created });
   } catch (error: unknown) {
     const err = error as Error;
-    return NextResponse.json({ error: err.message || "Failed to create dispute" }, { status: 400 });
+    return safeJsonResponse({ error: err.message || "Failed to create dispute" }, 400);
   }
 }
 

@@ -8,6 +8,7 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
   Building2,
   FileCheck2,
 } from "lucide-react";
@@ -65,6 +66,14 @@ export default async function HomePage({
             >
               <QrCode className="w-5 h-5 text-[#74c69d]" />
               <span>{locale === "kn" ? "ಕ್ಯೂಆರ್ & ಹ್ಯಾಶ್ ಲ್ಯಾಬ್" : "QR & Hash Lab"}</span>
+            </Link>
+
+            <Link
+              href="/grievances"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-3 rounded-xl shadow transition flex items-center space-x-2 text-sm sm:text-base border border-amber-400/40"
+            >
+              <AlertCircle className="w-5 h-5 text-amber-200" />
+              <span>{locale === "kn" ? "ಕುಂದುಕೊರತೆಗಳ ಪರಿಶೀಲನೆ" : "Grievance Desk"}</span>
             </Link>
 
             <Link
