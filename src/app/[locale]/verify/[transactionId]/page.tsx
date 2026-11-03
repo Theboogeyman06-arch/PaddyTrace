@@ -46,7 +46,68 @@ export default async function VerifyTransactionPage({
   });
 
   if (!transaction) {
-    notFound();
+    const allTxs = await db.transactions.findMany();
+    return (
+      <div className="max-w-xl mx-auto py-10 space-y-6 text-center">
+        <div className="w-16 h-16 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center mx-auto">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full uppercase">
+            {locale === "kn" ? "ದಾಖಲೆ ಕಂಡುಬಂದಿಲ್ಲ" : "Record Not Found"}
+          </span>
+          <h1 className="text-2xl font-black text-slate-900">
+            {locale === "kn" ? "ವಹಿವಾಟು ಐಡಿ ಲಭ್ಯವಿಲ್ಲ" : "Transaction ID Not Found"}
+          </h1>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            {locale === "kn"
+              ? `ವಹಿವಾಟು ಐಡಿ "${transactionId}" ಪ್ರಸ್ತುತ ನೋಂದಣಿಯಲ್ಲಿ ಲಭ್ಯವಿಲ್ಲ.`
+              : `The transaction ID "${transactionId}" was not found in the current procurement ledger.`}
+          </p>
+        </div>
+
+        {allTxs.length > 0 && (
+          <div className="p-4 bg-white rounded-2xl border border-slate-200 text-left space-y-3">
+            <span className="text-xs font-bold text-slate-700 uppercase">
+              {locale === "kn" ? "ಲಭ್ಯವಿರುವ ದೃಢೀಕೃತ ಮಾದರಿ ವಹಿವಾಟುಗಳು:" : "Available Verified Sample Transactions:"}
+            </span>
+            <div className="divide-y divide-slate-100">
+              {allTxs.slice(0, 3).map((tx) => (
+                <Link
+                  key={tx.id}
+                  href={`/verify/${tx.id}`}
+                  className="py-2.5 flex items-center justify-between hover:bg-slate-50 p-2 rounded-lg transition"
+                >
+                  <div>
+                    <div className="font-mono text-xs font-bold text-[#1b4332]">{tx.id}</div>
+                    <div className="text-[11px] text-slate-500">{tx.farmer?.nameEn} • {tx.centre?.nameEn}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-bold text-emerald-800">{formatPaiseToInr(tx.finalPayablePaise)}</div>
+                    <span className="text-[10px] text-slate-400">View Record →</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+          <Link
+            href="/officer/procure"
+            className="bg-[#1b4332] text-white text-xs font-bold px-5 py-3 rounded-xl shadow transition"
+          >
+            {locale === "kn" ? "+ ಹೊಸ ಖರೀದಿ ದಾಖಲಿಸಿ" : "+ Record in Weighing Wizard"}
+          </Link>
+          <Link
+            href="/"
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-5 py-3 rounded-xl transition"
+          >
+            {locale === "kn" ? "ಮುಖಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ" : "Back to Home"}
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   // Token signature validation (if token provided)

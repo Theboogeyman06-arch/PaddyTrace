@@ -227,3 +227,4 @@ export function InteractiveQrLab({ locale }: { locale: string }) {
     </div>
   );
 }
+

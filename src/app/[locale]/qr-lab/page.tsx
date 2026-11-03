@@ -8,3 +8,4 @@ export default async function QrLabPage({
   const { locale } = await params;
   return <InteractiveQrLab locale={locale} />;
 }
+
