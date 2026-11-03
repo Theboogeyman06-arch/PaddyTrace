@@ -222,6 +222,13 @@ export function InteractiveQrLab({ locale }: { locale: string }) {
           finalPayablePaise={calc.finalPayablePaise}
           originalHash={currentSha256}
           previousHash={GENESIS_HASH}
+          grossWeightKg={grossWeight}
+          tareWeightKg={tareWeight}
+          deductionKg={calc.deductionKg}
+          payableWeightKg={calc.payableWeightKg}
+          paddyVariety={variety}
+          mspRatePaise={mspRate}
+          dueDateStr={new Date(Date.now() + 15 * 86400000).toLocaleDateString("en-IN")}
         />
       </div>
     </div>

@@ -337,6 +337,13 @@ export function OfficerWizard({ locale, centres, mspRates }: WizardProps) {
                 originalHash={submitResult.hash || ""}
                 previousHash={GENESIS_HASH}
                 verificationToken={submitResult.verificationToken}
+                grossWeightKg={gross}
+                tareWeightKg={tare}
+                deductionKg={liveCalc?.deductionKg}
+                payableWeightKg={liveCalc?.payableWeightKg}
+                paddyVariety={paddyVariety}
+                mspRatePaise={currentMsp}
+                dueDateStr={new Date(Date.now() + 15 * 86400000).toLocaleDateString("en-IN")}
               />
             </div>
 

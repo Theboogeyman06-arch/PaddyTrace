@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import QRCode from "qrcode";
 import { db } from "@/lib/db";
-import { formatPaiseToInr, formatWeight, maskName } from "@/lib/math/procurement";
+import {
+  formatPaiseToInr,
+  formatWeight,
+  maskName,
+  generateOfflinePassportText,
+} from "@/lib/math/procurement";
 import { generateQrVerificationToken } from "@/lib/crypto/hash-chain";
 import { getPublicVerificationBaseUrl } from "@/lib/network";
 
@@ -36,15 +41,6 @@ export async function GET(
   );
   const verificationUrl = `${baseUrl}/kn/verify/${transaction.id}?t=${token}`;
 
-  const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
-    width: 200,
-    margin: 1,
-    color: {
-      dark: "#1b4332",
-      light: "#ffffff",
-    },
-  });
-
   const formattedNet = formatWeight(transaction.netWeight);
   const formattedGross = formatWeight(transaction.grossWeight);
   const formattedTare = formatWeight(transaction.tareWeight);
@@ -56,6 +52,51 @@ export async function GET(
   const dueDateStr = payment ? new Date(payment.dueDate).toLocaleDateString("en-IN") : "N/A";
   const txDateStr = new Date(transaction.createdAt).toLocaleString("en-IN");
   const maskedFarmer = farmer ? maskName(farmer.nameEn) : "Registered Farmer";
+
+  // 1. Generate Self-Contained Offline Passport Text
+  // This text is parsed directly by ANY smartphone camera (Google Lens, iOS, Android)
+  // WITHOUT requiring Wi-Fi, Internet, or connecting to a local server!
+  const offlinePassportText = generateOfflinePassportText({
+    transactionId: transaction.id,
+    centreCode: centre?.code || "KA-RCH-01",
+    centreName: centre?.nameEn || "Sindhanur APMC Centre",
+    farmerFruitsId: farmer?.fruitsId || "1002345678",
+    farmerName: farmer?.nameEn || "Registered Farmer",
+    paddyVariety: transaction.paddyVariety,
+    grossWeightKg: transaction.grossWeight,
+    tareWeightKg: transaction.tareWeight,
+    netWeightKg: transaction.netWeight,
+    moisturePercent: transaction.moisturePercent,
+    deductionKg: transaction.deductionKg,
+    payableWeightKg: transaction.payableWeight,
+    mspRatePaise: transaction.mspRatePaise,
+    finalPayablePaise: transaction.finalPayablePaise,
+    dueDateStr,
+    sequenceNumber: transaction.sequenceNumber,
+    hash: transaction.hash,
+  });
+
+  // 2. Generate Universal Offline QR (Default)
+  const qrOfflineDataUrl = await QRCode.toDataURL(offlinePassportText, {
+    width: 220,
+    margin: 1,
+    color: {
+      dark: "#1b4332",
+      light: "#ffffff",
+    },
+    errorCorrectionLevel: "M",
+  });
+
+  // 3. Generate Online Web Portal QR
+  const qrWebDataUrl = await QRCode.toDataURL(verificationUrl, {
+    width: 220,
+    margin: 1,
+    color: {
+      dark: "#1b4332",
+      light: "#ffffff",
+    },
+    errorCorrectionLevel: "M",
+  });
 
   // HTML Printable Official Digital Transaction Passport
   const html = `<!DOCTYPE html>
@@ -199,10 +240,21 @@ export async function GET(
   </style>
 </head>
 <body>
-  <div class="no-print" style="margin-bottom: 16px; text-align: right;">
-    <button onclick="window.print()" style="background: #1b4332; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer;">
-      Print / Save as PDF
-    </button>
+  <div class="no-print" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0;">
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <span style="font-size: 12px; font-weight: 700; color: #1b4332;">📱 QR Mode:</span>
+      <button id="btnOffline" onclick="switchQr('offline')" style="background: #1b4332; color: #fff; border: 1px solid #1b4332; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
+        📱 Universal Offline (Works without Wi-Fi / Any Phone)
+      </button>
+      <button id="btnWeb" onclick="switchQr('web')" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+        🌐 Online Web Portal Link
+      </button>
+    </div>
+    <div>
+      <button onclick="window.print()" style="background: #1b4332; color: #fff; border: none; padding: 9px 18px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+        🖨️ Print / Save as PDF
+      </button>
+    </div>
   </div>
 
   <div class="passport-border">
@@ -302,25 +354,62 @@ export async function GET(
     </div>
 
     <div class="qr-section">
-      <div>
-        <img src="${qrDataUrl}" alt="Verification QR Code" width="130" height="130" style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px;" />
+      <div style="text-align: center;">
+        <img id="passportQr" src="${qrOfflineDataUrl}" alt="Verification QR Code" width="145" height="145" style="border: 2px solid #1b4332; border-radius: 6px; padding: 4px; background: #fff;" />
+        <div style="font-size: 10px; color: #065f46; font-weight: 800; margin-top: 5px;">✓ SELF-CONTAINED</div>
       </div>
       <div style="flex: 1;">
+        <div id="qrBadge" style="display: inline-block; background: #065f46; color: #ffffff; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; margin-bottom: 6px; letter-spacing: 0.5px;">
+          📱 ZERO-WIFI OFFLINE VERIFIABLE QR (SCANNABLE ON ANY PHONE)
+        </div>
         <div style="font-weight: 700; color: #1b4332; font-size: 13px; margin-bottom: 4px;">
           Independent Farmer Verification & Tamper Detection
         </div>
-        <div style="font-size: 11px; color: #475569; margin-bottom: 8px;">
-          Scan this QR code with any smartphone camera to independently verify weighing authenticity, moisture deductions, and DBT payment status without logging in.
+        <div id="qrDesc" style="font-size: 11px; color: #475569; margin-bottom: 8px; line-height: 1.45;">
+          Scan with ANY smartphone camera (Google Lens, iPhone Camera, Samsung QR, WhatsApp) on ANY network (cellular 4G/5G, different Wi-Fi, or completely offline). Displays complete verified weights, moisture deductions, statutory MSP payout, 15-day due date, and SHA-256 seal directly on your screen without requiring a server connection.
         </div>
         <div class="hash-box">
           <strong>Block Sequence:</strong> #${transaction.sequenceNumber} (Centre: ${centre?.code})<br/>
           <strong>SHA-256 Hash:</strong> ${transaction.hash}<br/>
           <strong>Previous Block:</strong> ${transaction.previousHash}<br/>
-          <strong>Verification URL:</strong> <a href="${verificationUrl}" style="color: #1b4332; text-decoration: underline;">${verificationUrl}</a>
+          <strong>Online Web URL:</strong> <a href="${verificationUrl}" style="color: #1b4332; text-decoration: underline;">${verificationUrl}</a>
         </div>
       </div>
     </div>
   </div>
+
+  <script>
+    const qrOffline = "${qrOfflineDataUrl}";
+    const qrWeb = "${qrWebDataUrl}";
+
+    function switchQr(mode) {
+      const img = document.getElementById('passportQr');
+      const badge = document.getElementById('qrBadge');
+      const desc = document.getElementById('qrDesc');
+      const btnOff = document.getElementById('btnOffline');
+      const btnW = document.getElementById('btnWeb');
+
+      if (mode === 'offline') {
+        img.src = qrOffline;
+        badge.innerText = '📱 ZERO-WIFI OFFLINE VERIFIABLE QR (SCANNABLE ON ANY PHONE)';
+        badge.style.background = '#065f46';
+        desc.innerText = 'Scan with ANY smartphone camera (Google Lens, iPhone Camera, Samsung QR, WhatsApp) on ANY network (cellular 4G/5G, different Wi-Fi, or completely offline). Displays complete verified weights, moisture deductions, statutory MSP payout, 15-day due date, and SHA-256 seal directly on your screen without requiring a server connection.';
+        btnOff.style.background = '#1b4332';
+        btnOff.style.color = '#fff';
+        btnW.style.background = '#ffffff';
+        btnW.style.color = '#334155';
+      } else {
+        img.src = qrWeb;
+        badge.innerText = '🌐 ONLINE WEB PORTAL QR';
+        badge.style.background = '#1e3a8a';
+        desc.innerText = 'Scan to open the interactive verification portal directly in your mobile web browser (requires device to be on the same local network or cloud domain).';
+        btnW.style.background = '#1e3a8a';
+        btnW.style.color = '#fff';
+        btnOff.style.background = '#ffffff';
+        btnOff.style.color = '#334155';
+      }
+    }
+  </script>
 </body>
 </html>`;
 

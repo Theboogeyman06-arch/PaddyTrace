@@ -383,6 +383,13 @@ export default async function VerifyTransactionPage({
             originalHash={transaction.hash}
             previousHash={transaction.previousHash}
             verificationToken={signedToken}
+            grossWeightKg={transaction.grossWeight}
+            tareWeightKg={transaction.tareWeight}
+            deductionKg={transaction.deductionKg}
+            payableWeightKg={transaction.payableWeight}
+            paddyVariety={transaction.paddyVariety}
+            mspRatePaise={transaction.mspRatePaise}
+            dueDateStr={payment ? new Date(payment.dueDate).toLocaleDateString("en-IN") : "15-Day Statutory SLA"}
           />
         </div>
         <div className="mt-8 p-4 rounded-xl bg-slate-900 text-slate-300 font-mono text-xs space-y-2">

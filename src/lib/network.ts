@@ -46,3 +46,4 @@ export function getPublicVerificationBaseUrl(requestOrigin?: string): string {
 
   return `http://${lanIp}:3000`;
 }
+

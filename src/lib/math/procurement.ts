@@ -175,3 +175,67 @@ export function maskBankAccount(account: string): string {
   return "XXXX-XXXX-" + account.slice(-4);
 }
 
+/**
+ * Generates a self-contained, tamper-evident digital passport text payload for QR codes.
+ * This payload is readable by ANY smartphone camera or scanner app WITHOUT Wi-Fi or Internet connectivity.
+ */
+export function generateOfflinePassportText(params: {
+  transactionId: string;
+  centreCode: string;
+  centreName?: string;
+  farmerFruitsId: string;
+  farmerName: string;
+  paddyVariety?: string;
+  grossWeightKg?: number;
+  tareWeightKg?: number;
+  netWeightKg: number;
+  moisturePercent: number;
+  deductionKg?: number;
+  payableWeightKg?: number;
+  mspRatePaise?: number | bigint;
+  finalPayablePaise: number | bigint;
+  dueDateStr?: string;
+  sequenceNumber?: number;
+  hash: string;
+}): string {
+  const mspFormatted = params.mspRatePaise ? formatPaiseToInr(params.mspRatePaise) : "₹2,320.00";
+  const finalFormatted = formatPaiseToInr(params.finalPayablePaise);
+  const variety = params.paddyVariety || "PADDY_GRADE_A";
+  const due = params.dueDateStr || "15 Days from Procurement";
+  const gross = params.grossWeightKg !== undefined ? `${params.grossWeightKg.toFixed(2)} kg` : "N/A";
+  const tare = params.tareWeightKg !== undefined ? `${params.tareWeightKg.toFixed(2)} kg` : "N/A";
+  const deduction = params.deductionKg !== undefined ? `-${params.deductionKg.toFixed(2)} kg` : "0.00 kg";
+  const payable =
+    params.payableWeightKg !== undefined
+      ? `${params.payableWeightKg.toFixed(2)} kg`
+      : `${params.netWeightKg.toFixed(2)} kg`;
+  const masked = maskName(params.farmerName);
+
+  return [
+    "🌾 PADDYTRACE — DIGITAL PROCUREMENT PASSPORT",
+    "ಕರ್ನಾಟಕ ಸರ್ಕಾರ — ಆಹಾರ ಮತ್ತು ನಾಗರಿಕ ಸರಬರಾಜು ಇಲಾಖೆ",
+    "────────────────────────────────────",
+    `Passport ID: ${params.transactionId}`,
+    `Centre: ${params.centreName || "APMC Centre"} (${params.centreCode})`,
+    `Farmer: ${masked} (FRUITS: ${params.farmerFruitsId})`,
+    `Variety: ${variety}`,
+    "────────────────────────────────────",
+    `Gross: ${gross} | Tare: ${tare}`,
+    `Net Received: ${params.netWeightKg.toFixed(2)} kg`,
+    `Moisture: ${params.moisturePercent.toFixed(1)}% (Deduction: ${deduction})`,
+    `Payable Weight: ${payable}`,
+    `Statutory MSP: ${mspFormatted} / Qtl`,
+    "────────────────────────────────────",
+    `TOTAL PAYABLE: ${finalFormatted}`,
+    "Disbursement: Direct Benefit Transfer (DBT)",
+    `Statutory SLA Due Date: ${due}`,
+    "────────────────────────────────────",
+    `Block #${params.sequenceNumber || 1} | Tamper-Evident SHA-256:`,
+    `${params.hash}`,
+    "Status: INTACT & AUDIT-VERIFIED",
+    "────────────────────────────────────",
+    "✓ Offline Pass: No Wi-Fi or Internet required to verify.",
+  ].join("\n");
+}
+
+

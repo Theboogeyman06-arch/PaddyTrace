@@ -7,6 +7,7 @@ import {
   formatWeight,
   maskName,
   maskPhone,
+  generateOfflinePassportText,
 } from "../src/lib/math/procurement";
 
 describe("Procurement Mathematical Primitives", () => {
@@ -65,6 +66,26 @@ describe("Procurement Mathematical Primitives", () => {
     expect(formatWeight(4500)).toBe("4,500.00 kg (45.00 Qtl)");
     expect(maskName("Basavaraj Gowda")).toBe("B*******j G***a");
     expect(maskPhone("9845012345")).toBe("98******45");
+  });
+
+  it("generates structured offline self-contained passport text payload", () => {
+    const text = generateOfflinePassportText({
+      transactionId: "TX-TEST-999",
+      centreCode: "KA-RCH-01",
+      farmerFruitsId: "1002345678",
+      farmerName: "Ramesh Patil",
+      netWeightKg: 4250,
+      moisturePercent: 16.5,
+      finalPayablePaise: 9860000n,
+      hash: "abc123def456",
+    });
+    expect(text).toContain("TX-TEST-999");
+    expect(text).toContain("1002345678");
+    expect(text).toContain("R****h P***l");
+    expect(text).toContain("4250.00 kg");
+    expect(text).toContain("₹98,600.00");
+    expect(text).toContain("abc123def456");
+    expect(text).toContain("No Wi-Fi or Internet required");
   });
 });
 

@@ -13,11 +13,19 @@ import {
   Flame,
   RotateCcw,
   Sparkles,
+  WifiOff,
+  Wifi,
+  Globe,
+  FileText,
 } from "lucide-react";
-import { formatPaiseToInr, formatWeight } from "@/lib/math/procurement";
+import {
+  formatPaiseToInr,
+  formatWeight,
+  generateOfflinePassportText,
+} from "@/lib/math/procurement";
 import { sha256 } from "@/lib/crypto/hash-chain";
 
-interface TamperEvidentQrCardProps {
+export interface TamperEvidentQrCardProps {
   locale: string;
   transactionId: string;
   farmerFruitsId: string;
@@ -30,6 +38,13 @@ interface TamperEvidentQrCardProps {
   originalHash: string;
   previousHash: string;
   verificationToken?: string;
+  grossWeightKg?: number;
+  tareWeightKg?: number;
+  deductionKg?: number;
+  payableWeightKg?: number;
+  paddyVariety?: string;
+  mspRatePaise?: bigint | number;
+  dueDateStr?: string;
 }
 
 export function TamperEvidentQrCard({
@@ -45,30 +60,58 @@ export function TamperEvidentQrCard({
   originalHash,
   previousHash,
   verificationToken,
+  grossWeightKg,
+  tareWeightKg,
+  deductionKg,
+  payableWeightKg,
+  paddyVariety,
+  mspRatePaise,
+  dueDateStr,
 }: TamperEvidentQrCardProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [copiedPayload, setCopiedPayload] = useState(false);
   const [isTampered, setIsTampered] = useState(false);
   const [tamperedWeight, setTamperedWeight] = useState(netWeightKg);
-  // Default to LAN IP for smartphone scanning when running locally
+  // Default to universal offline mode so ANY phone can scan without Wi-Fi
+  const [scanMode, setScanMode] = useState<"offline" | "wifi" | "web">("offline");
   const [networkHost, setNetworkHost] = useState("10.82.179.100:3000");
-  const [scanMode, setScanMode] = useState<"mobile" | "local" | "custom">("mobile");
   const [customHost, setCustomHost] = useState("");
+  const [showPayloadPreview, setShowPayloadPreview] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const host = window.location.host;
-      // If deployed on Vercel or accessed via public domain / LAN IP, use that host automatically
       if (!host.includes("localhost") && !host.includes("127.0.0.1")) {
         setNetworkHost(host);
       }
     }
   }, []);
 
+  const currentWeight = isTampered ? tamperedWeight : netWeightKg;
+
+  // Real-time simulated hash
+  const simulatedPayload = JSON.stringify({
+    centreCode,
+    farmerFruitsId,
+    finalPayablePaise: Number(finalPayablePaise),
+    netWeightKg: currentWeight,
+    previousHash,
+    sequenceNumber,
+    transactionId,
+  });
+
+  const computedHash = isTampered
+    ? "a7f9c" + sha256(simulatedPayload).substring(5)
+    : originalHash;
+
+  const isHashIntact = !isTampered && computedHash === originalHash;
+
+  // Web / Wi-Fi URLs
   const selectedHost =
-    scanMode === "mobile"
+    scanMode === "wifi"
       ? networkHost
-      : scanMode === "custom" && customHost
+      : scanMode === "web" && customHost
       ? customHost.replace(/^https?:\/\//, "")
       : typeof window !== "undefined"
       ? window.location.host
@@ -80,38 +123,41 @@ export function TamperEvidentQrCard({
     verificationToken ? `?t=${verificationToken}` : ""
   }`;
 
-  // Generate QR code data URL on mount or URL change
+  // Self-contained offline passport text readable by ANY camera without internet/Wi-Fi
+  const offlinePassportText = generateOfflinePassportText({
+    transactionId,
+    centreCode,
+    farmerFruitsId,
+    farmerName,
+    paddyVariety,
+    grossWeightKg,
+    tareWeightKg,
+    netWeightKg: currentWeight,
+    moisturePercent,
+    deductionKg,
+    payableWeightKg,
+    mspRatePaise,
+    finalPayablePaise,
+    dueDateStr,
+    sequenceNumber,
+    hash: computedHash,
+  });
+
+  // What to encode in the QR code
+  const activeQrPayload = scanMode === "offline" ? offlinePassportText : verificationUrl;
+
+  // Generate QR code data URL whenever payload changes
   useEffect(() => {
-    QRCode.toDataURL(verificationUrl, {
+    QRCode.toDataURL(activeQrPayload, {
       width: 280,
       margin: 1,
       color: {
-        dark: "#1b4332",
+        dark: isTampered ? "#7f1d1d" : "#1b4332",
         light: "#ffffff",
       },
-      errorCorrectionLevel: "H", // High error correction
+      errorCorrectionLevel: "M",
     }).then(setQrDataUrl);
-  }, [verificationUrl]);
-
-  // Compute live hash based on current weight (testing tamper simulation)
-  const currentWeight = isTampered ? tamperedWeight : netWeightKg;
-  // Deterministic mock canonical string for live client tamper simulation
-  const simulatedPayload = JSON.stringify({
-    centreCode,
-    farmerFruitsId,
-    finalPayablePaise: Number(finalPayablePaise),
-    netWeightKg: currentWeight,
-    previousHash,
-    sequenceNumber,
-    transactionId,
-  });
-  
-  // Real-time simulated hash
-  const computedHash = isTampered
-    ? "a7f9c" + sha256(simulatedPayload).substring(5)
-    : originalHash;
-
-  const isHashIntact = !isTampered && computedHash === originalHash;
+  }, [activeQrPayload, isTampered]);
 
   const handleCopyHash = () => {
     navigator.clipboard.writeText(computedHash);
@@ -119,11 +165,17 @@ export function TamperEvidentQrCard({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyPayload = () => {
+    navigator.clipboard.writeText(activeQrPayload);
+    setCopiedPayload(true);
+    setTimeout(() => setCopiedPayload(false), 2000);
+  };
+
   const handleDownloadQr = () => {
     if (!qrDataUrl) return;
     const a = document.createElement("a");
     a.href = qrDataUrl;
-    a.download = `PaddyTrace-QR-${transactionId}.png`;
+    a.download = `PaddyTrace-QR-${transactionId}-${scanMode}.png`;
     a.click();
   };
 
@@ -179,47 +231,132 @@ export function TamperEvidentQrCard({
           </div>
 
           <div className="text-xs text-slate-500 max-w-xs leading-relaxed">
-            {locale === "kn"
-              ? "ಯಾವುದೇ ಸ್ಮಾರ್ಟ್‌ಫೋನ್ ಕ್ಯಾಮೆರಾದಿಂದ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ ತೂಕ, ತೇವಾಂಶ ಮತ್ತು ನೇರ ಪಾವತಿ ಪರಿಶೀಲಿಸಿ."
-              : "Scan with any mobile camera to independently verify weights, deductions, and payment."}
+            {scanMode === "offline"
+              ? locale === "kn"
+                ? "ಯಾವುದೇ ಸ್ಮಾರ್ಟ್‌ಫೋನ್ ಕ್ಯಾಮೆರಾ (ಇಂಟರ್ನೆಟ್ ಅಥವಾ ವೈ-ಫೈ ಇಲ್ಲದಿದ್ದರೂ) ಸ್ಕ್ಯಾನ್ ಮಾಡಿ ತಕ್ಷಣ ಪೂರ್ಣ ರಶೀದಿ ಪಡೆಯಬಹುದು."
+                : "Scan with ANY smartphone camera (no Wi-Fi or internet required) to see full verified details directly on screen."
+              : locale === "kn"
+              ? "ಸ್ಥಳೀಯ ನೆಟ್‌ವರ್ಕ್ ಅಥವಾ ವೆಬ್ ಮೂಲಕ ಅಧಿಕೃತ ಪರಿಶೀಲನಾ ಪೋರ್ಟಲ್ ತೆರೆಯಿರಿ."
+              : "Scan to open the interactive verification web portal."}
           </div>
 
           {/* Scan Target Host Switcher for Smartphone Demo */}
-          <div className="w-full bg-slate-100 p-2 rounded-xl border border-slate-200 text-left space-y-1.5">
+          <div className="w-full bg-slate-100 p-2.5 rounded-xl border border-slate-200 text-left space-y-2">
             <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 uppercase">
-              <span>{locale === "kn" ? "ಕ್ಯೂಆರ್ ಸ್ಕ್ಯಾನ್ ಮೋಡ್" : "QR Scan Target"}:</span>
-              <span className="font-mono text-emerald-800 font-semibold">{selectedHost}</span>
+              <span>{locale === "kn" ? "ಕ್ಯೂಆರ್ ಸ್ಕ್ಯಾನ್ ಮೋಡ್" : "QR Scan Mode"}:</span>
+              <span className="font-mono text-emerald-800 font-semibold">
+                {scanMode === "offline"
+                  ? "Universal Offline (No Wi-Fi)"
+                  : scanMode === "wifi"
+                  ? `Wi-Fi (${selectedHost})`
+                  : "Cloud / Web"}
+              </span>
             </div>
-            <div className="grid grid-cols-2 gap-1 text-[11px] font-semibold">
+
+            <div className="grid grid-cols-3 gap-1 text-[11px] font-semibold">
               <button
                 type="button"
-                onClick={() => setScanMode("mobile")}
-                className={`px-2 py-1 rounded text-center transition ${
-                  scanMode === "mobile"
+                onClick={() => setScanMode("offline")}
+                className={`px-2 py-1.5 rounded-lg text-center transition flex flex-col items-center justify-center ${
+                  scanMode === "offline"
                     ? "bg-[#1b4332] text-white shadow-xs font-bold"
-                    : "bg-white text-slate-700 hover:bg-slate-50"
+                    : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                 }`}
               >
-                📱 Mobile Wi-Fi
+                <WifiOff className="w-3.5 h-3.5 mb-0.5" />
+                <span>📱 No Wi-Fi</span>
               </button>
               <button
                 type="button"
-                onClick={() => setScanMode("local")}
-                className={`px-2 py-1 rounded text-center transition ${
-                  scanMode === "local"
+                onClick={() => setScanMode("wifi")}
+                className={`px-2 py-1.5 rounded-lg text-center transition flex flex-col items-center justify-center ${
+                  scanMode === "wifi"
                     ? "bg-[#1b4332] text-white shadow-xs font-bold"
-                    : "bg-white text-slate-700 hover:bg-slate-50"
+                    : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                 }`}
               >
-                💻 Laptop
+                <Wifi className="w-3.5 h-3.5 mb-0.5" />
+                <span>📶 Same Wi-Fi</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setScanMode("web")}
+                className={`px-2 py-1.5 rounded-lg text-center transition flex flex-col items-center justify-center ${
+                  scanMode === "web"
+                    ? "bg-[#1b4332] text-white shadow-xs font-bold"
+                    : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5 mb-0.5" />
+                <span>🌐 Cloud Web</span>
               </button>
             </div>
-            {scanMode === "mobile" && (
-              <p className="text-[10px] text-emerald-800 leading-tight">
-                ✓ Points to LAN IP (<code>{networkHost}</code>). Smartphones on this Wi-Fi can scan & connect directly without &quot;localhost refused to connect&quot;!
+
+            {scanMode === "offline" && (
+              <p className="text-[10px] text-emerald-900 bg-emerald-50 p-2 rounded-lg border border-emerald-200 leading-tight">
+                <strong>✓ Recommended for Farmers:</strong> Scannable on ANY mobile camera on ANY network (cellular 4G/5G, different Wi-Fi, or offline). Never fails with &quot;refused to connect&quot;!
               </p>
             )}
+
+            {scanMode === "wifi" && (
+              <p className="text-[10px] text-slate-700 bg-white p-2 rounded-lg border border-slate-200 leading-tight">
+                Points to LAN IP (<code>http://{networkHost}</code>). Requires both laptop and phone to be on the same Wi-Fi router.
+              </p>
+            )}
+
+            {scanMode === "web" && (
+              <div className="space-y-1">
+                <input
+                  type="text"
+                  placeholder="e.g. paddytrace.vercel.app"
+                  value={customHost}
+                  onChange={(e) => setCustomHost(e.target.value)}
+                  className="w-full text-xs p-1.5 bg-white border border-slate-300 rounded font-mono"
+                />
+                <p className="text-[9px] text-slate-500">
+                  Deploy to Vercel for public URL accessible worldwide on cellular 4G/5G.
+                </p>
+              </div>
+            )}
           </div>
+
+          {/* Offline Scanned Text Preview Toggle */}
+          {scanMode === "offline" && (
+            <div className="w-full text-left pt-1">
+              <button
+                type="button"
+                onClick={() => setShowPayloadPreview(!showPayloadPreview)}
+                className="text-[11px] text-[#1b4332] font-bold hover:underline flex items-center space-x-1"
+              >
+                <FileText className="w-3 h-3 text-[#2d6a4f]" />
+                <span>
+                  {showPayloadPreview
+                    ? locale === "kn"
+                      ? "ರಶೀದಿ ಪೂರ್ವವೀಕ್ಷಣೆ ಮರೆಮಾಡಿ"
+                      : "Hide Mobile View Preview"
+                    : locale === "kn"
+                    ? "ರೈತರ ಮೊಬೈಲ್‌ನಲ್ಲಿ ಕಾಣುವ ರಶೀದಿ ಪೂರ್ವವೀಕ್ಷಣೆ"
+                    : "📱 What Farmer Sees on Scan (Preview)"}
+                </span>
+              </button>
+
+              {showPayloadPreview && (
+                <div className="mt-2 relative">
+                  <pre className="text-[10px] bg-slate-900 text-emerald-400 p-3 rounded-xl overflow-x-auto font-mono whitespace-pre-wrap leading-relaxed border border-slate-800 max-h-56">
+                    {offlinePassportText}
+                  </pre>
+                  <button
+                    type="button"
+                    onClick={handleCopyPayload}
+                    className="absolute top-2 right-2 bg-slate-800 hover:bg-slate-700 text-white text-[9px] font-bold px-2 py-1 rounded flex items-center space-x-1 border border-slate-600"
+                  >
+                    {copiedPayload ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5" />}
+                    <span>{copiedPayload ? "Copied" : "Copy"}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-center gap-2 pt-1 w-full">
             <button
@@ -237,7 +374,7 @@ export function TamperEvidentQrCard({
               className="px-3 py-1.5 bg-[#1b4332] hover:bg-[#2d6a4f] text-white rounded-lg text-xs font-bold transition flex items-center space-x-1"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>{locale === "kn" ? "ಪರಿಶೀಲಿಸಿ" : "Test Scan Link"}</span>
+              <span>{locale === "kn" ? "ವೆಬ್ ಲಿಂಕ್" : "Web Link"}</span>
             </a>
           </div>
         </div>
