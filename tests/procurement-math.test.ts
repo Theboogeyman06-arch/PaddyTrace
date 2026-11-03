@@ -85,7 +85,7 @@ describe("Procurement Mathematical Primitives", () => {
     expect(text).toContain("4250.00 kg");
     expect(text).toContain("₹98,600.00");
     expect(text).toContain("abc123def456");
-    expect(text).toContain("No Wi-Fi or Internet required");
+    expect(text).toContain("PaddyTrace Karnataka");
   });
 });
 

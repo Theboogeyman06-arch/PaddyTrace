@@ -1,4 +1,6 @@
 import os from "os";
+import fs from "fs";
+import path from "path";
 
 /**
  * Returns the IPv4 address of the host machine on the local network (e.g. 10.82.179.100 / 192.168.x.x)
@@ -22,8 +24,8 @@ export function getLocalNetworkIp(): string {
 
 /**
  * Resolves the public verification base URL for QR codes.
- * Ensures that QR codes scanned by mobile phones point to a reachable network IP or Vercel domain,
- * avoiding "localhost refused to connect".
+ * Ensures that QR codes scanned by mobile phones point to a reachable public tunnel,
+ * Vercel domain, or network IP so they scan easily and work from anywhere in the world.
  */
 export function getPublicVerificationBaseUrl(requestOrigin?: string): string {
   // 1. Production / Vercel Domain
@@ -34,7 +36,29 @@ export function getPublicVerificationBaseUrl(requestOrigin?: string): string {
     return `https://${process.env.VERCEL_URL}`;
   }
 
-  // 2. If running locally, convert localhost/127.0.0.1 to LAN IP
+  // 2. Active Public HTTPS Tunnel (accessible worldwide on 4G/5G mobile internet)
+  try {
+    const tunnelFile = path.join(process.cwd(), ".tunnel-url");
+    if (fs.existsSync(tunnelFile)) {
+      const url = fs.readFileSync(tunnelFile, "utf-8").trim();
+      if (url.startsWith("http")) {
+        return url.replace(/\/$/, "");
+      }
+    }
+  } catch {
+    // Ignore read error
+  }
+
+  // 3. If request came from a public non-local domain
+  if (
+    requestOrigin &&
+    !requestOrigin.includes("localhost") &&
+    !requestOrigin.includes("127.0.0.1")
+  ) {
+    return requestOrigin;
+  }
+
+  // 4. Local network IP fallback
   const lanIp = getLocalNetworkIp();
 
   if (requestOrigin) {

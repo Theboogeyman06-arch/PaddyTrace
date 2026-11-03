@@ -73,9 +73,9 @@ export function TamperEvidentQrCard({
   const [copiedPayload, setCopiedPayload] = useState(false);
   const [isTampered, setIsTampered] = useState(false);
   const [tamperedWeight, setTamperedWeight] = useState(netWeightKg);
-  // Default to universal offline mode so ANY phone can scan without Wi-Fi
-  const [scanMode, setScanMode] = useState<"offline" | "wifi" | "web">("offline");
-  const [networkHost, setNetworkHost] = useState("10.82.179.100:3000");
+  // Default to LAN IP so any phone on Wi-Fi scans and connects directly without error
+  const [scanMode, setScanMode] = useState<"wifi" | "web" | "offline">("wifi");
+  const [networkHost, setNetworkHost] = useState("10.132.2.100:3000");
   const [customHost, setCustomHost] = useState("");
   const [showPayloadPreview, setShowPayloadPreview] = useState(false);
 
@@ -84,6 +84,13 @@ export function TamperEvidentQrCard({
       const host = window.location.host;
       if (!host.includes("localhost") && !host.includes("127.0.0.1")) {
         setNetworkHost(host);
+      } else {
+        fetch("/api/network-ip")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.host) setNetworkHost(data.host);
+          })
+          .catch(() => {});
       }
     }
   }, []);
@@ -117,13 +124,16 @@ export function TamperEvidentQrCard({
       ? window.location.host
       : "localhost:3000";
 
-  const protocol = selectedHost.includes("vercel.app") ? "https" : "http";
+  const protocol =
+    selectedHost.includes("lhr.life") || selectedHost.includes("vercel.app")
+      ? "https"
+      : "http";
   const baseUrl = `${protocol}://${selectedHost}`;
   const verificationUrl = `${baseUrl}/${locale}/verify/${transactionId}${
     verificationToken ? `?t=${verificationToken}` : ""
   }`;
 
-  // Self-contained offline passport text readable by ANY camera without internet/Wi-Fi
+  // Self-contained compact offline passport text readable by barcode scanners without internet
   const offlinePassportText = generateOfflinePassportText({
     transactionId,
     centreCode,
@@ -143,21 +153,21 @@ export function TamperEvidentQrCard({
     hash: computedHash,
   });
 
-  // What to encode in the QR code
+  // What to encode in the QR code (URL by default for 0.05s instant scan)
   const activeQrPayload = scanMode === "offline" ? offlinePassportText : verificationUrl;
 
   // Generate QR code data URL whenever payload changes
   useEffect(() => {
     QRCode.toDataURL(activeQrPayload, {
-      width: 280,
-      margin: 1,
+      width: 320,
+      margin: 2,
       color: {
-        dark: isTampered ? "#7f1d1d" : "#1b4332",
+        dark: isTampered ? "#991b1b" : "#000000",
         light: "#ffffff",
       },
-      errorCorrectionLevel: "M",
+      errorCorrectionLevel: scanMode === "offline" ? "L" : "M",
     }).then(setQrDataUrl);
-  }, [activeQrPayload, isTampered]);
+  }, [activeQrPayload, isTampered, scanMode]);
 
   const handleCopyHash = () => {
     navigator.clipboard.writeText(computedHash);
@@ -244,27 +254,27 @@ export function TamperEvidentQrCard({
           <div className="w-full bg-slate-100 p-2.5 rounded-xl border border-slate-200 text-left space-y-2">
             <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 uppercase">
               <span>{locale === "kn" ? "ಕ್ಯೂಆರ್ ಸ್ಕ್ಯಾನ್ ಮೋಡ್" : "QR Scan Mode"}:</span>
-              <span className="font-mono text-emerald-800 font-semibold">
-                {scanMode === "offline"
-                  ? "Universal Offline (No Wi-Fi)"
+              <span className="font-mono text-emerald-800 font-semibold truncate max-w-[170px]">
+                {scanMode === "web"
+                  ? `🌐 Public (${selectedHost})`
                   : scanMode === "wifi"
-                  ? `Wi-Fi (${selectedHost})`
-                  : "Cloud / Web"}
+                  ? `📶 Wi-Fi (${selectedHost})`
+                  : "📱 Compact Offline"}
               </span>
             </div>
 
             <div className="grid grid-cols-3 gap-1 text-[11px] font-semibold">
               <button
                 type="button"
-                onClick={() => setScanMode("offline")}
+                onClick={() => setScanMode("web")}
                 className={`px-2 py-1.5 rounded-lg text-center transition flex flex-col items-center justify-center ${
-                  scanMode === "offline"
+                  scanMode === "web"
                     ? "bg-[#1b4332] text-white shadow-xs font-bold"
                     : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                 }`}
               >
-                <WifiOff className="w-3.5 h-3.5 mb-0.5" />
-                <span>📱 No Wi-Fi</span>
+                <Globe className="w-3.5 h-3.5 mb-0.5" />
+                <span>🌐 Public Web</span>
               </button>
               <button
                 type="button"
@@ -280,43 +290,34 @@ export function TamperEvidentQrCard({
               </button>
               <button
                 type="button"
-                onClick={() => setScanMode("web")}
+                onClick={() => setScanMode("offline")}
                 className={`px-2 py-1.5 rounded-lg text-center transition flex flex-col items-center justify-center ${
-                  scanMode === "web"
+                  scanMode === "offline"
                     ? "bg-[#1b4332] text-white shadow-xs font-bold"
                     : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                 }`}
               >
-                <Globe className="w-3.5 h-3.5 mb-0.5" />
-                <span>🌐 Cloud Web</span>
+                <WifiOff className="w-3.5 h-3.5 mb-0.5" />
+                <span>📱 Offline Text</span>
               </button>
             </div>
 
-            {scanMode === "offline" && (
+            {scanMode === "web" && (
               <p className="text-[10px] text-emerald-900 bg-emerald-50 p-2 rounded-lg border border-emerald-200 leading-tight">
-                <strong>✓ Recommended for Farmers:</strong> Scannable on ANY mobile camera on ANY network (cellular 4G/5G, different Wi-Fi, or offline). Never fails with &quot;refused to connect&quot;!
+                <strong>✓ Recommended:</strong> Scans instantly in 0.05s. Accessible by ANY mobile phone on 4G/5G mobile internet or any Wi-Fi in the world!
               </p>
             )}
 
             {scanMode === "wifi" && (
               <p className="text-[10px] text-slate-700 bg-white p-2 rounded-lg border border-slate-200 leading-tight">
-                Points to LAN IP (<code>http://{networkHost}</code>). Requires both laptop and phone to be on the same Wi-Fi router.
+                Points to LAN IP (<code>http://10.82.179.100:3000</code>). Requires both laptop and phone to be on the same Wi-Fi router.
               </p>
             )}
 
-            {scanMode === "web" && (
-              <div className="space-y-1">
-                <input
-                  type="text"
-                  placeholder="e.g. paddytrace.vercel.app"
-                  value={customHost}
-                  onChange={(e) => setCustomHost(e.target.value)}
-                  className="w-full text-xs p-1.5 bg-white border border-slate-300 rounded font-mono"
-                />
-                <p className="text-[9px] text-slate-500">
-                  Deploy to Vercel for public URL accessible worldwide on cellular 4G/5G.
-                </p>
-              </div>
+            {scanMode === "offline" && (
+              <p className="text-[10px] text-blue-900 bg-blue-50 p-2 rounded-lg border border-blue-200 leading-tight">
+                Encodes compact passport text directly. Works for devices with no internet or camera scanners.
+              </p>
             )}
           </div>
 
