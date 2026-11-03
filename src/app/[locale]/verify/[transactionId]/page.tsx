@@ -15,6 +15,7 @@ import {
   Building,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { TamperEvidentQrCard } from "@/components/TamperEvidentQrCard";
 import {
   formatPaiseToInr,
   formatWeight,
@@ -306,7 +307,23 @@ export default async function VerifyTransactionPage({
           </div>
         </div>
 
-        {/* Cryptographic Hash Chain Proof */}
+        {/* Tamper-Evident Unique QR Code & SHA-256 Section */}
+        <div className="mt-8">
+          <TamperEvidentQrCard
+            locale={locale}
+            transactionId={transaction.id}
+            farmerFruitsId={farmer?.fruitsId || "1002345678"}
+            farmerName={farmer?.nameEn || "Registered Farmer"}
+            centreCode={centre?.code || "KA-01"}
+            sequenceNumber={transaction.sequenceNumber}
+            netWeightKg={transaction.netWeight}
+            moisturePercent={transaction.moisturePercent}
+            finalPayablePaise={transaction.finalPayablePaise}
+            originalHash={transaction.hash}
+            previousHash={transaction.previousHash}
+            verificationToken={signedToken}
+          />
+        </div>
         <div className="mt-8 p-4 rounded-xl bg-slate-900 text-slate-300 font-mono text-xs space-y-2">
           <div className="flex items-center justify-between text-slate-400 font-sans text-xs font-bold border-b border-slate-800 pb-2">
             <span>{locale === "kn" ? "ಕ್ರಿಪ್ಟೋಗ್ರಾಫಿಕ್ ಹ್ಯಾಶ್ ಪುರಾವೆ (SHA-256)" : "Cryptographic Hash Chain Proof (SHA-256)"}</span>

@@ -60,6 +60,14 @@ export default async function HomePage({
             </Link>
 
             <Link
+              href="/qr-lab"
+              className="bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold px-5 py-3 rounded-xl shadow transition flex items-center space-x-2 text-sm sm:text-base border border-[#52b788]/40"
+            >
+              <QrCode className="w-5 h-5 text-[#74c69d]" />
+              <span>{locale === "kn" ? "ಕ್ಯೂಆರ್ & ಹ್ಯಾಶ್ ಲ್ಯಾಬ್" : "QR & Hash Lab"}</span>
+            </Link>
+
+            <Link
               href="/admin"
               className="bg-[#0f2e22] hover:bg-[#164332] text-emerald-200 border border-[#52b788]/40 font-semibold px-5 py-3 rounded-xl transition flex items-center space-x-2 text-sm sm:text-base"
             >

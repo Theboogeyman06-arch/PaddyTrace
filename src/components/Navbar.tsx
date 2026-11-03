@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/routing";
-import { ShieldCheck, Wifi, WifiOff, Globe, UserCheck, Layers, FileText } from "lucide-react";
+import { ShieldCheck, Wifi, WifiOff, Globe, UserCheck, Layers, FileText, QrCode } from "lucide-react";
 import { useEffect, useState } from "react";
 import { offlineDb } from "@/lib/offline/db";
 
@@ -78,6 +78,13 @@ export function Navbar() {
             >
               <UserCheck className="w-4 h-4 text-[#74c69d]" />
               <span>{t("newProcurement")}</span>
+            </Link>
+            <Link
+              href="/qr-lab"
+              className="px-3 py-2 rounded-md hover:bg-[#2d6a4f] transition flex items-center space-x-1.5"
+            >
+              <QrCode className="w-4 h-4 text-[#74c69d]" />
+              <span>{locale === "kn" ? "ಕ್ಯೂಆರ್ ಲ್ಯಾಬ್" : "QR & Hash Lab"}</span>
             </Link>
             <Link
               href="/admin"

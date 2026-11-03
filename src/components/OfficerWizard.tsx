@@ -29,6 +29,8 @@ import {
   formatWeight,
 } from "@/lib/math/procurement";
 import { offlineDb } from "@/lib/offline/db";
+import { TamperEvidentQrCard } from "@/components/TamperEvidentQrCard";
+import { GENESIS_HASH } from "@/lib/crypto/hash-chain";
 
 interface WizardProps {
   locale: string;
@@ -319,6 +321,23 @@ export function OfficerWizard({ locale, centres, mspRates }: WizardProps) {
               <div className="text-[10px] text-emerald-800 break-all pt-1 border-t border-emerald-200">
                 <strong>SHA-256:</strong> {submitResult.hash}
               </div>
+            </div>
+
+            <div className="pt-2 text-left">
+              <TamperEvidentQrCard
+                locale={locale}
+                transactionId={submitResult.transactionId}
+                farmerFruitsId={farmer?.fruitsId || "1002345678"}
+                farmerName={farmer?.nameEn || "Farmer"}
+                centreCode={centres.find((c) => c.id === centreId)?.code || "KA-01"}
+                sequenceNumber={submitResult.sequenceNumber || 1}
+                netWeightKg={liveCalc?.netWeightKg || 0}
+                moisturePercent={moisture}
+                finalPayablePaise={submitResult.finalPayablePaise}
+                originalHash={submitResult.hash || ""}
+                previousHash={GENESIS_HASH}
+                verificationToken={submitResult.verificationToken}
+              />
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
